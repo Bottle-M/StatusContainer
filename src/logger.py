@@ -32,7 +32,7 @@ class Logger:
         self._logger.setLevel(logging.DEBUG)
         # 日志目录不存在则建立, 全可读写权限
         if not os.path.exists(APP_LOG_DIR):
-            os.makedirs(APP_LOG_DIR, mode=0o777)
+            os.makedirs(APP_LOG_DIR, mode=0o777, exist_ok=True)
         # 文件输出器
         self._file_handler = RotatingFileHandler(
             os.path.join(APP_LOG_DIR, f"{name}.log"),

@@ -2,7 +2,7 @@
 查询 Minecraft 服务器状态的模块
 """
 
-import threading
+import asyncio
 from mcstatus import JavaServer
 from logger import Logger
 from asyncio.exceptions import TimeoutError
@@ -22,64 +22,63 @@ class MCStatus:
         self._timeout = timeout
         self._cache_max_age = cache_max_age
         self._cached_dict: dict | None = None  # 缓存的返回结果
-        self._cache_lock = threading.Lock()  # 缓存锁
+        self._cache_lock = asyncio.Lock()  # 缓存锁
 
     async def get(self):
         """
         获取 Minecraft 服务器状态
         :return: 服务器状态字典
         """
-        with self._cache_lock:
+        async with self._cache_lock:
             if self._cached_dict is not None:
-                _mc_logger.debug(f"Using cached data for {self._address}.")
                 return self._cached_dict
-        try:
             # 如果缓存不存在，则查询服务器状态
-            server = await JavaServer.async_lookup(self._address, timeout=self._timeout)
-            status = await server.async_status()
-            status_dict: dict = status.as_dict()
-            resp_dict = {
-                "ok": True,
-                "version": status_dict["version"],
-                "players": status_dict["players"],
-                "icon": status_dict.get("icon", ""),
-                "motd": status_dict["motd"],
-            }
-        except TimeoutError:
-            _mc_logger.error(
-                f"Query {self._address} timeout after {self._timeout} seconds."
-            )
-            resp_dict = {
-                "ok": False,
-                "error": f"Query timeout after {self._timeout} seconds.",
-            }
-        except ConnectionError:
-            _mc_logger.error(f"Connection error when querying {self._address}.")
-            resp_dict = {
-                "ok": False,
-                "error": "Connection error.",
-            }
-        # 设置缓存
-        self._set_cache(resp_dict)
+            # 这里也写在 with 块内，防止这段时间挤入多个请求击穿缓存
+            try:
+                server = await JavaServer.async_lookup(self._address, timeout=self._timeout)
+                status = await server.async_status()
+                status_dict: dict = status.as_dict()
+                resp_dict = {
+                    "ok": True,
+                    "version": status_dict["version"],
+                    "players": status_dict["players"],
+                    "icon": status_dict.get("icon", ""),
+                    "motd": status_dict["motd"],
+                }
+            except TimeoutError:
+                _mc_logger.error(
+                    f"Query {self._address} timeout after {self._timeout} seconds."
+                )
+                resp_dict = {
+                    "ok": False,
+                    "error": f"Query timeout after {self._timeout} seconds.",
+                }
+            except ConnectionError:
+                _mc_logger.error(f"Connection error when querying {self._address}.")
+                resp_dict = {
+                    "ok": False,
+                    "error": "Connection error.",
+                }
+            # 设置缓存
+            self._cached_dict = resp_dict
+
+        _mc_logger.debug(
+            f"Cache set for {self._address}, max age: {self._cache_max_age}."
+        )
+        self._set_timer()
         return resp_dict
 
-    def _clear_cache(self):
+    async def _set_and_clear_cache(self):
         """
-        清除缓存
+        清除缓存的协程任务
         """
+        await asyncio.sleep(self._cache_max_age)
         _mc_logger.debug(f"Cache cleared for {self._address}.")
-        with self._cache_lock:
+        async with self._cache_lock:
             self._cached_dict = None
 
-    def _set_cache(self, data: dict):
+    def _set_timer(self):
         """
-        设置缓存
-
-        :param data: 要缓存的数据
+        设置缓存清除定时器
         """
-        with self._cache_lock:
-            self._cached_dict = data
-        # 设置定时器来清除缓存
-        timer = threading.Timer(self._cache_max_age, self._clear_cache)
-        timer.daemon = True  # 设置为守护线程
-        timer.start()
+        asyncio.create_task(self._set_and_clear_cache())

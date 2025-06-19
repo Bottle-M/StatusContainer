@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from fastapi import FastAPI
 from logger import Logger
 from configs import APP_VERSION, MC_SERVER_ADDR, MC_QUERY_TIMEOUT, MC_CACHE_MAX_AGE
 from mc import MCStatus
@@ -12,14 +12,15 @@ mc_status = MCStatus(
 )
 
 # Flask App
-app = Flask(__name__)
+app = FastAPI(title="Minecraft Status API", version=APP_VERSION)
 
-@app.route("/")
+
+@app.get("/")
 async def index():
-    return jsonify({"message": f"Hello World, BottleM Status API Ver.{APP_VERSION}"})
+    return {"message": f"Hello World, BottleM Status API Ver.{APP_VERSION}"}
 
 
-@app.route("/mcstatus")
+@app.get("/mcstatus")
 async def mcstatus():
     status_dict = await mc_status.get()
-    return jsonify(status_dict)
+    return status_dict

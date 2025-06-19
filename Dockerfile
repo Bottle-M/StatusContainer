@@ -6,9 +6,9 @@ COPY src/* /app
 
 WORKDIR /app
 
-RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 
 # 容器内 9527 端口开放服务
 EXPOSE 9527
 
-CMD ["gunicorn", "--workers", "2", "--bind", "0.0.0.0:9527", "app:app"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "9527", "--workers", "2"]
