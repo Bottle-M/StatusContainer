@@ -1,6 +1,6 @@
 FROM python:3.12.11-alpine3.22
 
-ENV APP_VERSION='1.0.0'
+ENV APP_VERSION='1.0.2'
 
 COPY src/* /app
 
