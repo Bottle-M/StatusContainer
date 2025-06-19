@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from logger import Logger
 from configs import APP_VERSION, MC_SERVER_ADDR, MC_QUERY_TIMEOUT, MC_CACHE_MAX_AGE
 from mc import MCStatus
@@ -14,6 +15,14 @@ mc_status = MCStatus(
 # Flask App
 app = FastAPI(title="Minecraft Status API", version=APP_VERSION)
 
+# 允许所有跨域请求
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"], 
+    allow_headers=["*"], 
+)
 
 @app.get("/")
 async def index():
